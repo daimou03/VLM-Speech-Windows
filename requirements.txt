@@ -1,0 +1,4 @@
+sherpa-onnx>=1.10.0
+sounddevice>=0.4.6
+soundfile>=0.12.1
+numpy>=1.21.0
