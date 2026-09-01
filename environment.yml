@@ -1,0 +1,13 @@
+name: vlm-speech
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy>=1.21.0
+  - pip:
+    - sherpa-onnx>=1.10.0
+    - sounddevice>=0.4.6
+    - soundfile>=0.12.1
+    - huggingface-hub>=0.14.0
