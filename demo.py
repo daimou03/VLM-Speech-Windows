@@ -47,6 +47,27 @@ KWS_CONFIG = {
     "provider": "cpu",
 }
 
+# ==================== 音频处理预设 (保守/激进) ====================
+# 可通过环境变量 AUDIO_PRESET 设置使用的预设: conservative 或 aggressive
+AUDIO_PRESETS = {
+    "conservative": {
+        "frame_ms": 30,               # 更长帧，VAD 更稳定
+        "vad_aggressiveness": 1,      # 较保守，避免误判为静音
+        "silence_timeout_ms": 400,    # 静音阈值更长，适合嘈杂/长停顿场景
+    },
+    "aggressive": {
+        "frame_ms": 20,               # 更短帧，响应更快
+        "vad_aggressiveness": 3,      # 更激进，能更快判定语音
+        "silence_timeout_ms": 200,    # 静音阈值短，短停顿即认为结束
+    },
+}
+DEFAULT_PRESET_NAME = os.environ.get("AUDIO_PRESET", "conservative")
+
+
+def get_audio_preset(name: str | None = None):
+    name = name or DEFAULT_PRESET_NAME
+    return AUDIO_PRESETS.get(name, AUDIO_PRESETS["conservative"])
+
 
 def reduce_noise(signal: "np.ndarray", sr: int):
     """尝试多种降噪方法：
@@ -81,7 +102,7 @@ def demo_asr():
 
     特性：
     - 使用 webrtcvad 进行语音活动检测（VAD）
-    - 使用 sounddevice.InputStream 的回调获取��延迟音频块
+    - 使用 sounddevice.InputStream 的回调获取低延迟音频块
     - 在识别前做简单预处理：去直流偏置（DC）、峰值归一
     - 提供更强的降噪入口（reduce_noise）
 
@@ -104,9 +125,10 @@ def demo_asr():
         if sample_rate not in (8000, 16000, 32000, 48000):
             raise ValueError("webrtcvad 支持的采样率仅为 8000/16000/32000/48000")
 
-        frame_ms = 30  # webrtcvad 支持 10/20/30 ms
+        preset = get_audio_preset()
+        frame_ms = preset["frame_ms"]
         frame_size = int(sample_rate * frame_ms / 1000)  # 每帧样本数
-        vad = webrtcvad.Vad(2)  # aggressiveness: 0-3，数字越大越激进
+        vad = webrtcvad.Vad(preset["vad_aggressiveness"])  # aggressiveness: 0-3
 
         asr = ASREngine(**ASR_CONFIG)
 
@@ -128,8 +150,7 @@ def demo_asr():
         def processing_thread():
             speech_buffer = []  # 存储检测到为语音的帧
             in_speech = False
-            silence_frames = 0
-            silence_timeout_ms = 300
+            silence_timeout_ms = preset["silence_timeout_ms"]
             max_silence_frames = max(1, int(silence_timeout_ms / frame_ms))
 
             partial_chunk = np.empty((0,), dtype=np.int16)
@@ -278,9 +299,10 @@ def demo_kws():
         if sample_rate not in (8000, 16000, 32000, 48000):
             raise ValueError("webrtcvad 支持的采样率仅为 8000/16000/32000/48000")
 
-        frame_ms = 30
+        preset = get_audio_preset()
+        frame_ms = preset["frame_ms"]
         frame_size = int(sample_rate * frame_ms / 1000)
-        vad = webrtcvad.Vad(1)  # 对唤醒词检测用较保守的阈值
+        vad = webrtcvad.Vad(preset["vad_aggressiveness"])  # 对唤醒词检测用较保守的阈值
 
         kws = KWSEngine(**KWS_CONFIG)
 
@@ -300,8 +322,7 @@ def demo_kws():
         def processing_thread():
             speech_buffer = []
             in_speech = False
-            silence_frames = 0
-            silence_timeout_ms = 300
+            silence_timeout_ms = preset["silence_timeout_ms"]
             max_silence_frames = max(1, int(silence_timeout_ms / frame_ms))
 
             partial_chunk = np.empty((0,), dtype=np.int16)
