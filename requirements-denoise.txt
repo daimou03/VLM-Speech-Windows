@@ -1,0 +1,9 @@
+# Optional requirements for improved denoising and audio handling
+sounddevice
+webrtcvad
+numpy
+
+# Optional (better denoising):
+noisereduce  # optional fallback
+scipy       # optional (resample, wiener)
+# rnnoise   # optional best-quality denoiser; may require native build or binding
